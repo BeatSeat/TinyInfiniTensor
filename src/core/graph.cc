@@ -152,6 +152,57 @@ namespace infini
         // TODO：利用 allocator 给计算图分配内存
         // HINT: 获取分配好的内存指针后，可以调用 tensor 的 setDataBlob 函数给 tensor 绑定内存
         // =================================== 作业 ===================================
+        // record the memory address offsets of all tensors to be allocated
+        // 下面模拟内存的申请过程
+        std::unordered_map<TensorObj *, size_t> tensorToRefCount;   // 使用引用计数
+        std::unordered_map<TensorObj *, size_t> tensorToOffset;
+        for (auto &tensor : tensors) {
+            tensorToRefCount[tensor.get()] = tensor->getTargets().size();
+            if (tensor->getSource() == nullptr) {
+                tensorToOffset[tensor.get()] = allocator.alloc(tensor->size());
+            }
+            // printf("Now allocating tensor %s at offset %lu\n", tensor -> toString().c_str(), tensorToOffset[tensor.get()]);
+        }
+
+        // 前面topo_sort()已经保证了ops的拓扑排序
+        for (auto &op : ops) {
+            auto outputs = op -> getOutputs();
+            for (auto &tensor : outputs) {
+                if (tensor) {
+                    tensorToOffset[tensor.get()] = allocator.alloc(tensor -> getBytes());
+                }
+            }
+            auto inputs = op -> getInputs();
+            for (auto &tensor : inputs) {
+                if (tensor) {
+                    // could add assert: validate tensorToRefCount > 0 && can find tensorToRefCount
+                    tensorToRefCount[tensor.get()] -= 1;
+                    if (tensorToRefCount[tensor.get()] == 0) {
+                        tensorToRefCount.erase(tensor.get());
+                        allocator.free(tensorToOffset[tensor.get()], tensor -> getBytes());
+                    }
+                }
+            }
+        }
+
+        for (auto &tensor : tensors) {
+            tensor->setDataBlob(make_ref<BlobObj>(
+                runtime,
+                static_cast<uint8_t *>(allocator.getPtr()) +
+                    tensorToOffset[tensor.get()]
+                ));
+        }
+
+        for (auto &op : ops) {
+            auto outputs = op -> getOutputs();
+            for (auto &tensor : outputs) {
+                tensor->setDataBlob(make_ref<BlobObj>(
+                    runtime,
+                    static_cast<uint8_t *>(allocator.getPtr()) +
+                        tensorToOffset[tensor.get()]
+                ));
+            }
+        }
 
         allocator.info();
     }
