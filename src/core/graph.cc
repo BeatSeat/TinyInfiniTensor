@@ -159,9 +159,8 @@ namespace infini
         for (auto &tensor : tensors) {
             tensorToRefCount[tensor.get()] = tensor->getTargets().size();
             if (tensor->getSource() == nullptr) {
-                tensorToOffset[tensor.get()] = allocator.alloc(tensor->size());
+                tensorToOffset[tensor.get()] = allocator.alloc(tensor -> getBytes());
             }
-            // printf("Now allocating tensor %s at offset %lu\n", tensor -> toString().c_str(), tensorToOffset[tensor.get()]);
         }
 
         // 前面topo_sort()已经保证了ops的拓扑排序
@@ -186,22 +185,12 @@ namespace infini
         }
 
         for (auto &tensor : tensors) {
+            IT_ASSERT(tensorToOffset.find(tensor.get()) != tensorToOffset.end());
             tensor->setDataBlob(make_ref<BlobObj>(
                 runtime,
                 static_cast<uint8_t *>(allocator.getPtr()) +
                     tensorToOffset[tensor.get()]
                 ));
-        }
-
-        for (auto &op : ops) {
-            auto outputs = op -> getOutputs();
-            for (auto &tensor : outputs) {
-                tensor->setDataBlob(make_ref<BlobObj>(
-                    runtime,
-                    static_cast<uint8_t *>(allocator.getPtr()) +
-                        tensorToOffset[tensor.get()]
-                ));
-            }
         }
 
         allocator.info();

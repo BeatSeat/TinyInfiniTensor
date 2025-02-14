@@ -58,25 +58,21 @@ namespace infini
                 size_t lastBlockSize = tailAddrToBlockSize[this -> peak];
                 size_t lastBlockAddr = this -> peak - lastBlockSize;
                 freeBlocks.erase(freeBlockInfo{lastBlockAddr, lastBlockSize});
-                freeBlocks.insert(freeBlockInfo{lastBlockAddr, size});
-                headAddrToBlockSize[lastBlockAddr] = size;
-                tailAddrToBlockSize[lastBlockAddr + size] = size;
+                headAddrToBlockSize.erase(lastBlockAddr);
+                tailAddrToBlockSize.erase(this -> peak);
                 this -> peak += size - lastBlockSize;
                 this -> used += size;
                 return lastBlockAddr;
             }
             else {
                 // 之前的尾部是已被分配块，直接扩展size大小
-                freeBlocks.insert(freeBlockInfo{this -> peak, size});
-                headAddrToBlockSize[this -> peak] = size;
-                tailAddrToBlockSize[this -> peak + size] = size;
                 size_t retAddr = this -> peak;
                 this -> peak += size;
                 this -> used += size;
                 return retAddr;
             }
         }
-        return 0;
+        return this -> peak;
     }
 
     void Allocator::free(size_t addr, size_t size)
