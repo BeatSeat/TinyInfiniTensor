@@ -9,8 +9,26 @@ Shape infer_broadcast(const Shape &A, const Shape &B) {
     // TODO：对 A 和 B 进行双向广播，返回广播后的形状。
     // REF: https://github.com/onnx/onnx/blob/main/docs/Broadcasting.md
     // =================================== 作业 ===================================
-    
-    return {};
+    if (A.size() < B.size()) {
+        return infer_broadcast(B, A);
+    }
+    Shape ans = A;
+    size_t gap = A.size() - B.size();
+    for (size_t i = 0; i < B.size(); ++i) {
+        if (A.at(i + gap) == B.at(i)) {
+            continue;
+        }
+        else if (A.at(i + gap) == 1){
+            ans.at(i + gap) = B.at(i);
+        }
+        else if (B.at(i) == 1) {
+            ans.at(i + gap) = A.at(i + gap);
+        }
+        else {
+            IT_ASSERT(false);
+        }
+    }
+    return ans;
 }
 
 int get_real_axis(const int &axis, const int &rank) {
